@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* From Uiverse.io by KhelVers */ 
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.animate-float {
+  animation: float 8s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 10s ease-in-out infinite 2s;
+}
+
+.animate-pulse {
+  animation: pulse 6s ease-in-out infinite;
+}
+
+.shadow-neu-md-blue {
+  box-shadow: 6px 6px 12px #93c5fd, -6px -6px 12px #bfdbfe;
+}
+
+.shadow-neu-sm-blue {
+  box-shadow: 4px 4px 8px #93c5fd, -4px -4px 8px #bfdbfe;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, and Opera */
+}
+
+.sent-receipt {
+  color: #666; /* Gray for Sent */
+}
+.delivered-receipt {
+  color: #666; /* Gray for Delivered */
+}
+.read-receipt {
+  color: #14b8a6; /* Teal for Read, matching your UI (teal-500) */
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.picker-container {
+  width: 26%;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.picker-container .EmojiPickerReact {
+  background-color: #1f2937 !important; /* bg-gray-800 */
+  border: none !important;
+  border-radius: 0.5rem !important; /* rounded-lg */
+}
+.picker-container .EmojiPickerReact .epr-body {
+  background-color: #1f2937 !important;
+}
+.picker-container .EmojiPickerReact .epr-header {
+  background-color: #1f2937 !important;
+}
+.picker-container .EmojiPickerReact .epr_-orqfm8 {
+  background-color: #4a4e69 !important;
+}
+.picker-container .EmojiPickerReact .epr-body::-webkit-scrollbar {
+  display: none;
+}
+.picker-container .EmojiPickerReact .epr-emoji-category-label {
+  background-color: #1f2937 !important;
+}
+.picker-container .epr-emoji-category-label {
+  color: #ffffff !important; /* White text for categories */
+}
