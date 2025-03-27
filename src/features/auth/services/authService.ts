@@ -1,84 +1,162 @@
+// src/features/auth/services/authService.ts
+import axios, { AxiosError } from 'axios';
 import { 
   LoginCredentials, 
   RegisterData, 
   AuthResponse,
   OTPRequest,
-  OTPVerification
+  OTPVerification,
+  User
 } from '../types/authTypes';
 
 const API_BASE_URL = 'http://localhost:8081/api/auth';
+const USER_BASE_URL = 'http://localhost:8081/api/users';
+
+// Add axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(credentials),
-        credentials: 'include'
-      });
-      console.log(response);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
+      console.log('Attempting login with:', credentials.email);
+      const response = await axiosInstance.post('/login', credentials);
+      console.log('Login response:', response.data);
+      return response.data;
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        console.error('Login error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        const message = error.response?.data?.message || 'Login failed';
+        throw new Error(message);
       }
-
-      return response.json();
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      throw new Error('Login failed');
     }
   },
 
   async register(userData: RegisterData): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE_URL}/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(userData)
-    });
+    try {
+      const formData = new FormData();
+      formData.append('name', userData.name);
+      formData.append('email', userData.email);
+      formData.append('password', userData.password);
+      
+      // If profilePicture is a base64 string, convert it to a file
+      if (userData.profilePicture) {
+        const base64Data = userData.profilePicture.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteArrays = [];
+        
+        for (let offset = 0; offset < byteCharacters.length; offset += 1024) {
+          const slice = byteCharacters.slice(offset, offset + 1024);
+          const byteNumbers = new Array(slice.length);
+          
+          for (let i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+          }
+          
+          const byteArray = new Uint8Array(byteNumbers);
+          byteArrays.push(byteArray);
+        }
+        
+        const blob = new Blob(byteArrays, { type: 'image/jpeg' });
+        const file = new File([blob], 'profile-picture.jpg', { type: 'image/jpeg' });
+        formData.append('profilePicture', file);
+      }
 
-    if (!response.ok) {
+      const response = await axios.post(`${API_BASE_URL}/register`, formData, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.message || 'Registration failed';
+        console.error('Registration error:', message);
+        throw new Error(message);
+      }
       throw new Error('Registration failed');
     }
+  },
 
-    return response.json();
+  async fetchCurrentUser(): Promise<User> {
+    try {
+      console.log('Fetching current user...');
+      const response = await axiosInstance.get(`${USER_BASE_URL}/current-user`);
+      console.log('Current user response:', response.data);
+      return response.data;
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        console.error('Fetch current user error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        const message = error.response?.data?.message || 'Failed to fetch current user';
+        throw new Error(message);
+      }
+      throw new Error('Failed to fetch current user');
+    }
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await axios.post(`${API_BASE_URL}/logout`, {}, {
+        withCredentials: true,
+      });
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.message || 'Logout failed';
+        console.error('Logout error:', message);
+        throw new Error(message);
+      }
+      throw new Error('Logout failed');
+    }
   },
 
   async sendOTP(email: OTPRequest): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/forgot-password/send-otp`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(email)
-    });
-
-    if (!response.ok) {
-      console.log("Issue in the OTP");
+    try {
+      await axios.post(`${API_BASE_URL}/forgot-password/send-otp`, email, {
+        withCredentials: true,
+      });
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.message || 'Failed to send OTP';
+        console.error('Send OTP error:', message);
+        throw new Error(message);
+      }
       throw new Error('Failed to send OTP');
     }
   },
 
   async verifyOTP(otpData: OTPVerification & { newPassword: string }): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/forgot-password/verify-otp`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(otpData)
-    });
-
-    if (!response.ok) {
+    try {
+      await axios.post(`${API_BASE_URL}/forgot-password/verify-otp`, otpData, {
+        withCredentials: true,
+      });
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.message || 'Password reset failed';
+        console.error('Verify OTP error:', message);
+        throw new Error(message);
+      }
       throw new Error('Password reset failed');
     }
   },
 
   async googleLogin(): Promise<void> {
     window.location.href = `${API_BASE_URL}/google-login`;
+    // Note: After redirect, the backend should redirect back to the frontend (e.g., /chat)
+    // You'll need a route to handle the callback and call fetchCurrentUser
   }
 };

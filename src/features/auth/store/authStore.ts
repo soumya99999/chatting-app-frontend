@@ -1,3 +1,4 @@
+// src/features/auth/store/authStore.ts
 import { create } from 'zustand';
 import { authService } from '../services/authService';
 import { 
@@ -11,69 +12,95 @@ import {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
-  isLoading: false,
+  loadingLogin: false,
+  loadingRegister: false,
+  loadingLogout: false,
+  loadingOTP: false,
+  loadingVerifyOTP: false,
+  loadingGoogleLogin: false,
+  loadingFetchUser: false,
   error: null,
-  
-  login: async (credentials: LoginCredentials) => {
-    set({ isLoading: true, error: null });
+
+  fetchCurrentUser: async () => {
+    set({ loadingFetchUser: true, error: null });
     try {
-      const { user, token } = await authService.login(credentials);
-      localStorage.setItem('token', token);
-      set({ user, isAuthenticated: true, isLoading: false });
+      const user = await authService.fetchCurrentUser();
+      set({ user, isAuthenticated: true, loadingFetchUser: false });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch current user';
+      set({ user: null, isAuthenticated: false, loadingFetchUser: false, error: message });
+    }
+  },
+
+  login: async (credentials: LoginCredentials) => {
+    set({ loadingLogin: true, error: null });
+    try {
+      const { user } = await authService.login(credentials);
+      set({ user, isAuthenticated: true, loadingLogin: false });
+      return user;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Login failed';
-      set({ error: message, isLoading: false });
+      set({ error: message, loadingLogin: false });
+      throw error;
     }
   },
 
   register: async (userData: RegisterData) => {
-    set({ isLoading: true, error: null });
+    set({ loadingRegister: true, error: null });
     try {
-      const { user, token } = await authService.register(userData);
-      localStorage.setItem('token', token);
-      set({ user, isAuthenticated: true, isLoading: false });
+      const { user } = await authService.register(userData);
+      set({ user, isAuthenticated: true, loadingRegister: false });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Registration failed';
-      set({ error: message, isLoading: false });
+      set({ error: message, loadingRegister: false });
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    set({ user: null, isAuthenticated: false });
+  logout: async () => {
+    set({ loadingLogout: true, error: null });
+    try {
+      await authService.logout();
+      set({ user: null, isAuthenticated: false, loadingLogout: false });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Logout failed';
+      set({ error: message, loadingLogout: false });
+    }
   },
 
   sendOTP: async (otpRequest: OTPRequest) => {
-    // console.log("Calling backend API for OTP:", otpRequest.email);
-    set({ isLoading: true, error: null });
+    set({ loadingOTP: true, error: null });
     try {
       await authService.sendOTP(otpRequest);
-      set({ isLoading: false });
+      set({ loadingOTP: false });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to send OTP';
-      set({ error: message, isLoading: false });
+      set({ error: message, loadingOTP: false });
     }
   },
 
   verifyOTP: async (otpData: OTPVerification & { newPassword: string }) => {
-    set({ isLoading: true, error: null });
+    set({ loadingVerifyOTP: true, error: null });
     try {
       await authService.verifyOTP(otpData);
-      set({ isLoading: false });
+      set({ loadingVerifyOTP: false });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Password reset failed';
-      set({ error: message, isLoading: false });
+      set({ error: message, loadingVerifyOTP: false });
     }
   },
 
   googleLogin: async () => {
-    set({ isLoading: true, error: null });
+    set({ loadingGoogleLogin: true, error: null });
     try {
       await authService.googleLogin();
-      set({ isLoading: false });
+      set({ loadingGoogleLogin: false });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Google login failed';
-      set({ error: message, isLoading: false });
+      set({ error: message, loadingGoogleLogin: false });
     }
+  },
+
+  clearError: () => {
+    set({ error: null });
   }
 }));

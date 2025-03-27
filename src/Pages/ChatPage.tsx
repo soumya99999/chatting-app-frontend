@@ -4,30 +4,56 @@ import ChatHeader from '../Components/ChatHeader';
 import ChatSidebar from '../features/chat/components/ChatSidebar';
 import ChatMain from '../features/chat/components/ChatMain';
 import { useChatStore } from '../features/chat/store/chatStore';
-import { useUserStore } from '../features/user/store/userStore';
+import { useAuthStore } from '../features/auth/store/authStore';
+import UserList from '../features/chat/components/UserList';
+import { useNavigate } from 'react-router-dom';
 
-// Online should be present here
 const ChatPage: React.FC = () => {
-    const { fetchChats, initializeSocket,onlineUsers} = useChatStore();
-    const { currentUser, users } = useUserStore();
+    const { fetchChats, initializeSocket } = useChatStore();
+    const { user, isAuthenticated } = useAuthStore();
     const { accessChat } = useChatStore();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        if (currentUser) {
-            // console.log("Initializing chat for user:", currentUser.id, "with onlineUsers:", onlineUsers);
-            fetchChats();
-            initializeSocket(currentUser.id);
-            const interval = setInterval(() => {
-                // console.log("Current onlineUsers for user", currentUser.id, ":", onlineUsers);
-            }, 5000); // Log every 5 seconds for debugging
-            return () => clearInterval(interval);
-        }
-    }, [fetchChats, initializeSocket, currentUser, onlineUsers]);
+        const initializeChat = async () => {
+            try {
+                if (!isAuthenticated || !user) {
+                    console.log('User not authenticated, redirecting to login...');
+                    navigate('/login');
+                    return;
+                }
 
-    const handleUserClick = (userId: string) => {
-        accessChat(userId);
+                console.log('Initializing chat with user:', user.id);
+                await fetchChats();
+                initializeSocket(user.id);
+                setIsInitialized(true);
+            } catch (error) {
+                console.error('Error initializing chat:', error);
+                navigate('/login');
+            }
+        };
+
+        initializeChat();
+    }, [fetchChats, initializeSocket, user, isAuthenticated, navigate]);
+
+    const handleUserClick = async (userId: string) => {
+        try {
+            await accessChat(userId);
+        } catch (error) {
+            console.error('Error accessing chat:', error);
+            navigate('/login');
+        }
     };
+
+    if (!isInitialized) {
+        return (
+            <div className="min-h-screen bg-teal-900 text-white flex items-center justify-center">
+                <div className="text-xl">Loading...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-teal-900 text-white flex flex-col">
@@ -36,20 +62,10 @@ const ChatPage: React.FC = () => {
                 <div className="bg-teal-800 p-4">
                     <h3 className="text-lg font-bold mb-2">All Users</h3>
                     <div className="flex gap-4 overflow-x-auto">
-                        {users.map((user) => (
-                            <div
-                                key={user.id}
-                                onClick={() => handleUserClick(user.id)}
-                                className="flex items-center gap-2 p-2 bg-teal-700 rounded-lg cursor-pointer hover:bg-teal-600"
-                            >
-                                <img
-                                    src={user.profilePicture || 'https://via.placeholder.com/30'}
-                                    alt={user.name}
-                                    className="w-8 h-8 rounded-full object-cover"
-                                />
-                                <span>{user.name}</span>
-                            </div>
-                        ))}
+                        <UserList
+                            onUserClick={handleUserClick}
+                            className="flex gap-4 overflow-x-auto"
+                        />
                     </div>
                     <button
                         onClick={() => setIsSidebarOpen(true)}

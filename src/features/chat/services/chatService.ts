@@ -1,14 +1,25 @@
 // src/features/chat/services/chatService.ts
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import type { Chat, RawUser, RawMessage, RawChat } from '../types/chatInterface';
 
 const API_BASE_URL = 'http://localhost:8081/api/chats';
 
+// Create axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 export const fetchChats = async (): Promise<Chat[]> => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/fetch-chats`, { withCredentials: true });
-        // console.log('fetchChats response.data:', response.data);
-        const chats = response.data.chats || response.data; // Handle both possible response structures
+        console.log('Fetching chats...');
+        const response = await axiosInstance.get('/fetch-chats');
+        console.log('Chats response:', response.data);
+        
+        const chats = response.data.chats || response.data;
         return chats.map((chat: RawChat) => ({
             _id: chat._id,
             chatName: chat.chatName,
@@ -21,7 +32,7 @@ export const fetchChats = async (): Promise<Chat[]> => {
             })) : [],
             messages: Array.isArray(chat.messages) ? chat.messages.map((m: RawMessage) => ({
                 _id: m._id,
-                chatId: m.chat._id, // Extract _id from chat object
+                chatId: m.chat._id,
                 senderId: m.sender._id,
                 sender: {
                     _id: m.sender._id,
@@ -38,7 +49,7 @@ export const fetchChats = async (): Promise<Chat[]> => {
             lastMessage: chat.latestMessage
                 ? {
                     _id: chat.latestMessage._id,
-                    chatId: chat.latestMessage.chat._id, // Extract _id from chat object
+                    chatId: chat.latestMessage.chat._id,
                     senderId: chat.latestMessage.sender._id,
                     sender: {
                         _id: chat.latestMessage.sender._id,
@@ -50,27 +61,36 @@ export const fetchChats = async (): Promise<Chat[]> => {
                     contentType: chat.latestMessage.contentType || 'text',
                     timestamp: new Date(chat.latestMessage.createdAt),
                     readBy: chat.latestMessage.readBy || [],
+                    deliveredBy: chat.latestMessage.deliveredBy || [],
                     isRead: chat.latestMessage.isRead || false
                 }
                 : undefined,
             createdAt: new Date(chat.createdAt),
             updatedAt: new Date(chat.updatedAt)
         }));
-    } catch (error) {
-        console.error('Error fetching chats:', error);
-        throw error;
+    } catch (error: unknown) {
+        if (error instanceof AxiosError) {
+            console.error('Fetch chats error details:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message,
+                code: error.code
+            });
+            if (error.response?.status === 401) {
+                throw new Error('Authentication failed. Please login again.');
+            }
+            throw new Error(error.response?.data?.message || 'Failed to fetch chats');
+        }
+        throw new Error('Failed to fetch chats');
     }
 };
 
 export const accessChat = async (userId: string): Promise<Chat> => {
     try {
-        // console.log('Attempting to access chat with userId:', userId);
-        const response = await axios.post(
-            `${API_BASE_URL}/access-chat`,
-            { userId },
-            { withCredentials: true }
-        );
-        // console.log('accessChat API Response:', response.data);
+        console.log('Accessing chat with userId:', userId);
+        const response = await axiosInstance.post('/access-chat', { userId });
+        console.log('Access chat response:', response.data);
+        
         const chat: RawChat = response.data;
         if (!chat || !chat._id) {
             throw new Error('Invalid or missing chat data in response');
@@ -87,7 +107,7 @@ export const accessChat = async (userId: string): Promise<Chat> => {
             })) : [],
             messages: Array.isArray(chat.messages) ? chat.messages.map((m: RawMessage) => ({
                 _id: m._id,
-                chatId: m.chat._id, // Extract _id from chat object
+                chatId: m.chat._id,
                 senderId: m.sender._id,
                 sender: {
                     _id: m.sender._id,
@@ -99,12 +119,13 @@ export const accessChat = async (userId: string): Promise<Chat> => {
                 contentType: m.contentType || 'text',
                 timestamp: new Date(m.createdAt),
                 readBy: m.readBy || [],
+                deliveredBy: m.deliveredBy || [],
                 isRead: m.isRead || false
             })) : [],
             lastMessage: chat.latestMessage
                 ? {
                     _id: chat.latestMessage._id,
-                    chatId: chat.latestMessage.chat._id, // Extract _id from chat object
+                    chatId: chat.latestMessage.chat._id,
                     senderId: chat.latestMessage.sender._id,
                     sender: {
                         _id: chat.latestMessage.sender._id,
@@ -116,14 +137,26 @@ export const accessChat = async (userId: string): Promise<Chat> => {
                     contentType: chat.latestMessage.contentType || 'text',
                     timestamp: new Date(chat.latestMessage.createdAt),
                     readBy: chat.latestMessage.readBy || [],
+                    deliveredBy: chat.latestMessage.deliveredBy || [],
                     isRead: chat.latestMessage.isRead || false
                 }
                 : undefined,
             createdAt: new Date(chat.createdAt),
             updatedAt: new Date(chat.updatedAt)
         };
-    } catch (error) {
-        console.error('Error accessing chat:', error);
-        throw error;
+    } catch (error: unknown) {
+        if (error instanceof AxiosError) {
+            console.error('Access chat error details:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message,
+                code: error.code
+            });
+            if (error.response?.status === 401) {
+                throw new Error('Authentication failed. Please login again.');
+            }
+            throw new Error(error.response?.data?.message || 'Failed to access chat');
+        }
+        throw new Error('Failed to access chat');
     }
 };

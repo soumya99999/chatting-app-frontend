@@ -1,3 +1,4 @@
+// src/features/auth/types/authTypes.ts
 export interface User {
   id: string;
   name: string;
@@ -28,20 +29,27 @@ export interface OTPVerification {
 
 export interface AuthResponse {
   user: User;
-  token: string;
 }
 
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  loadingLogin: boolean;
+  loadingRegister: boolean;
+  loadingLogout: boolean;
+  loadingOTP: boolean;
+  loadingVerifyOTP: boolean;
+  loadingGoogleLogin: boolean;
+  loadingFetchUser: boolean;
   error: string | null;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  fetchCurrentUser: () => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<User>;
   register: (userData: RegisterData) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   sendOTP: (otpRequest: OTPRequest) => Promise<void>;
   verifyOTP: (otpData: OTPVerification & { newPassword: string }) => Promise<void>;
   googleLogin: () => Promise<void>;
+  clearError: () => void;
 }
 
 export interface ValidationResult {

@@ -1,37 +1,65 @@
-import React, { useEffect, useCallback } from 'react';
-import { useUserStore } from '../../user/store/userStore';
+// src/features/chat/components/ChatSidebar.tsx
+import React, { useCallback, useState } from 'react';
+import { useAuthStore } from '../../auth/store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { debounce } from 'lodash';
 import { useNavigate } from 'react-router-dom';
+import UserList from './UserList';
+import type { Chat } from '../types/chatInterface';
+import type { User } from '../../user/store/userStore';
+import { FaUserCircle } from 'react-icons/fa';
 
 interface ChatSidebarProps {
-    onClose: () => void; 
+    onClose: () => void;
+}
+
+interface ChatUser extends User {
+    id: string;
+    name: string;
+    email: string;
+    profilePicture?: string;
 }
 
 const ChatSidebar: React.FC<ChatSidebarProps> = ({ onClose }) => {
-    const {
-        currentUser,
-        users,
-        searchResults,
-        loading,
-        error,
-        fetchCurrentUser,
-        fetchAllUsers,
-        searchUsers,
-        logout,
-    } = useUserStore();
+    const { user, logout } = useAuthStore();
     const { accessChat } = useChatStore();
-    const [searchQuery, setSearchQuery] = React.useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filteredUsers, setFilteredUsers] = useState<ChatUser[]>([]);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchCurrentUser();
-        fetchAllUsers();
-    }, [fetchCurrentUser, fetchAllUsers]);
-
     const debouncedSearch = useCallback(
-        debounce((query: string) => searchUsers(query), 300),
-        [searchUsers]
+        debounce((query: string) => {
+            // Get all users from the chat store
+            const { chats } = useChatStore.getState();
+            
+            // Extract unique users from chats
+            const allUsers = chats.reduce((acc: ChatUser[], chat: Chat) => {
+                chat.users.forEach((chatUser: User) => {
+                    // Only add users that aren't the current user and aren't already in the array
+                    if (chatUser.id !== user?.id && !acc.some(u => u.id === chatUser.id)) {
+                        acc.push({
+                            id: chatUser.id,
+                            name: chatUser.name,
+                            email: chatUser.email,
+                            profilePicture: chatUser.profilePicture
+                        });
+                    }
+                });
+                return acc;
+            }, []);
+
+            // Filter users based on search query
+            const filtered = allUsers.filter((chatUser) => {
+                const searchTerm = query.toLowerCase();
+                return (
+                    chatUser.name.toLowerCase().includes(searchTerm) ||
+                    chatUser.email.toLowerCase().includes(searchTerm)
+                );
+            });
+
+            setFilteredUsers(filtered);
+        }, 300),
+        [user?.id]
     );
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,6 +68,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ onClose }) => {
         if (query.trim()) {
             debouncedSearch(query);
         } else {
+            setFilteredUsers([]);
             setSearchQuery('');
         }
     };
@@ -55,7 +84,6 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ onClose }) => {
 
     return (
         <div className="w-1/4 bg-teal-800 p-4 flex flex-col gap-4 overflow-y-auto">
-            {/* Close Button */}
             <div className="flex justify-end">
                 <button
                     onClick={onClose}
@@ -65,20 +93,19 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ onClose }) => {
                 </button>
             </div>
 
-            {/* Current User Profile */}
-            {loading && !currentUser ? (
-                <p>Loading profile...</p>
-            ) : error ? (
-                <p className="text-red-400">Error: {error}</p>
-            ) : currentUser ? (
+            {user ? (
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <img
-                            src={currentUser.profilePicture || 'https://via.placeholder.com/40'}
-                            alt="Profile"
-                            className="w-10 h-10 rounded-full object-cover"
-                        />
-                        <span className="text-lg font-semibold">{currentUser.name}</span>
+                        {user.profilePicture ? (
+                            <img
+                                src={user.profilePicture}
+                                alt="Profile"
+                                className="w-10 h-10 rounded-full object-cover"
+                            />
+                        ) : (
+                            <FaUserCircle className="w-10 h-10 text-gray-400" />
+                        )}
+                        <span className="text-lg font-semibold">{user.name}</span>
                     </div>
                     <button
                         onClick={handleLogout}
@@ -91,7 +118,6 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ onClose }) => {
                 <p>No user data</p>
             )}
 
-            {/* Search Users */}
             <input
                 type="text"
                 value={searchQuery}
@@ -100,45 +126,39 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ onClose }) => {
                 className="w-full p-2 rounded-lg bg-teal-700 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-300"
             />
 
-            {/* User List */}
             <div className="flex-1">
-                <h3 className="text-lg font-bold mb-2">{searchQuery ? 'Search Results' : 'All Users'}</h3>
-                {loading && !users.length ? (
-                    <p>Loading users...</p>
-                ) : error ? (
-                    <p className="text-red-400">Error: {error}</p>
-                ) : searchQuery && searchResults.length > 0 ? (
-                    searchResults.map((user) => (
-                        <div
-                            key={user.id}
-                            onClick={() => handleUserClick(user.id)}
-                            className="flex items-center gap-2 py-2 cursor-pointer hover:bg-teal-700 rounded-lg transition-colors"
-                        >
-                            <img
-                                src={user.profilePicture || 'https://via.placeholder.com/30'}
-                                alt={user.name}
-                                className="w-8 h-8 rounded-full object-cover"
-                            />
-                            <span>{user.name}</span>
-                        </div>
-                    ))
-                ) : users.length > 0 ? (
-                    users.map((user) => (
-                        <div
-                            key={user.id}
-                            onClick={() => handleUserClick(user.id)}
-                            className="flex items-center gap-2 py-2 cursor-pointer hover:bg-teal-700 rounded-lg transition-colors"
-                        >
-                            <img
-                                src={user.profilePicture || 'https://via.placeholder.com/30'}
-                                alt={user.name}
-                                className="w-8 h-8 rounded-full object-cover"
-                            />
-                            <span>{user.name}</span>
-                        </div>
-                    ))
+                <h3 className="text-lg font-bold mb-2">
+                    {searchQuery ? 'Search Results' : 'All Users'}
+                </h3>
+                {searchQuery ? (
+                    <div className="space-y-2">
+                        {filteredUsers.map((chatUser) => (
+                            <div
+                                key={chatUser.id}
+                                onClick={() => handleUserClick(chatUser.id)}
+                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-teal-700 cursor-pointer transition-colors"
+                            >
+                                {chatUser.profilePicture ? (
+                                    <img
+                                        src={chatUser.profilePicture}
+                                        alt={chatUser.name}
+                                        className="w-10 h-10 rounded-full object-cover"
+                                    />
+                                ) : (
+                                    <FaUserCircle className="w-10 h-10 text-gray-400" />
+                                )}
+                                <div>
+                                    <div className="font-medium">{chatUser.name}</div>
+                                    <div className="text-sm text-gray-300">{chatUser.email}</div>
+                                </div>
+                            </div>
+                        ))}
+                        {filteredUsers.length === 0 && (
+                            <p className="text-gray-400 text-center">No users found</p>
+                        )}
+                    </div>
                 ) : (
-                    <p>No users found</p>
+                    <UserList onUserClick={handleUserClick} className="flex-1" />
                 )}
             </div>
         </div>

@@ -4,7 +4,7 @@ import type { Message } from "../types/chatInterface";
 
 const SOCKET_URL = "http://localhost:8081";
 
-const socket = io(SOCKET_URL, {
+export const socket = io(SOCKET_URL, {
     withCredentials: true,
     reconnection: true,
     reconnectionAttempts: 5,
@@ -52,7 +52,7 @@ export const onMessageReceived = (callback: (message: Message) => void) => {
 
     try {
         socket.on("message received", (rawMessage: Message) => {
-            console.log("Raw message received via socket:", rawMessage);
+            // console.log("Raw message received via socket:", rawMessage);
             const message: Message = {
                 _id: rawMessage._id,
                 chatId: rawMessage.chatId,
@@ -78,19 +78,19 @@ export const onMessageReceived = (callback: (message: Message) => void) => {
     }
 };
 
-export const startTyping = (chatId: string, chatUsers: string[]) => {
+export const startTyping = (chatId: string, userId: string) => {
     try {
-        socket.emit("typing", { chatId, users: chatUsers });
-        // console.log("Started typing in chat:", { chatId, users: chatUsers });
+        socket.emit("typing", { chatId, userId });
+        // console.log("Started typing in chat:", { chatId, userId });
     } catch (error) {
         console.error("Error emitting typing event:", error);
     }
 };
 
-export const stopTyping = (chatId: string, chatUsers: string[]) => {
+export const stopTyping = (chatId: string, userId: string) => {
     try {
-        socket.emit("stop typing", { chatId, users: chatUsers });
-        // console.log("Stopped typing in chat:", { chatId, users: chatUsers });
+        socket.emit("stop typing", { chatId, userId });
+        // console.log("Stopped typing in chat:", { chatId, userId });
     } catch (error) {
         console.error("Error emitting stop typing event:", error);
     }
@@ -161,12 +161,36 @@ export const markMessageDelivered = (messageId: string, chatId: string, userId: 
 export const onMessageStatusUpdate = (callback: (data: { messageId: string; chatId: string; userId: string; deliveredBy: string[]; readBy: string[]; isRead: boolean }) => void) => {
     try {
         socket.on("message status update", (data) => {
-            // console.log("Message status update received:", data);
+            console.log("Message status update received:", data);
             const { messageId, chatId, userId, deliveredBy = [], readBy = [], isRead = false } = data;
             callback({ messageId, chatId, userId, deliveredBy, readBy, isRead });
         });
     } catch (error) {
         console.error("Error setting up message status update listener:", error);
+    }
+};
+
+export const onMessageDelivered = (callback: (data: { messageId: string; chatId: string; userId: string; deliveredBy: string[]; readBy: string[]; isRead: boolean }) => void) => {
+    try {
+        socket.on("message delivered", (data) => {
+            console.log("Message delivered event received:", data);
+            const { messageId, chatId, userId, deliveredBy = [], readBy = [], isRead = false } = data;
+            callback({ messageId, chatId, userId, deliveredBy, readBy, isRead });
+        });
+    } catch (error) {
+        console.error("Error setting up message delivered listener:", error);
+    }
+};
+
+export const onMessageRead = (callback: (data: { messageId: string; chatId: string; userId: string; deliveredBy: string[]; readBy: string[]; isRead: boolean }) => void) => {
+    try {
+        socket.on("message read", (data) => {
+            console.log("Message read event received:", data);
+            const { messageId, chatId, userId, deliveredBy = [], readBy = [], isRead = false } = data;
+            callback({ messageId, chatId, userId, deliveredBy, readBy, isRead });
+        });
+    } catch (error) {
+        console.error("Error setting up message read listener:", error);
     }
 };
 
@@ -180,6 +204,7 @@ export const cleanupSocket = () => {
         socket.off("user stopped typing");
         socket.off("message read");
         socket.off("message status update");
+        socket.off("message delivered");
         socket.disconnect();
     } catch (error) {
         console.error("Error cleaning up socket:", error);

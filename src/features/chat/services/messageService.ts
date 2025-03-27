@@ -1,6 +1,7 @@
 // src/features/chat/services/messageService.ts
 import axios from "axios";
 import type { Message, RawMessage } from "../types/chatInterface";
+import { socket } from "../socket/socket";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
 
@@ -83,10 +84,20 @@ export const markMessageAsRead = async (messageId: string, chatId: string, userI
     console.log("Marking message as read:", { messageId, chatId, userId });
 
     try {
-        await axios.put(`${API_BASE_URL}/api/messages/${messageId}/read`, { chatId, userId }, {
+        const response = await axios.put(`${API_BASE_URL}/api/messages/${messageId}/read`, { chatId, userId }, {
             withCredentials: true,
         });
         console.log("Message marked as read successfully:", { messageId, chatId, userId });
+
+        // Emit socket event for message read status
+        socket.emit('mark message read', {
+            messageId,
+            chatId,
+            userId,
+            deliveredBy: response.data.updatedMessage.deliveredBy,
+            readBy: response.data.updatedMessage.readBy,
+            isRead: response.data.updatedMessage.isRead
+        });
     } catch (error) {
         console.error("Error marking message as read:", error);
         throw new Error("Failed to mark message as read. Please try again.");
@@ -94,15 +105,27 @@ export const markMessageAsRead = async (messageId: string, chatId: string, userI
 };
 
 export const markMessageDelivered = async (messageId: string, chatId: string, userId: string): Promise<void> => {
-    console.log("Marking message as delivered:", { messageId, chatId, userId });
-
+    console.log("message id = ",messageId,"chat Id = ",chatId);
     try {
-        await axios.put(`${API_BASE_URL}/api/messages/${messageId}/deliver`, { chatId, userId }, {
+        const response = await axios.put(`${API_BASE_URL}/api/messages/${messageId}/delivered`, {
+            chatId,
+            userId
+        }, {
             withCredentials: true,
         });
-        console.log("Message marked as delivered successfully:", { messageId, chatId, userId });
+        console.log("Message Delivered Successfully", response.data);
+        
+        // Emit socket event for message delivered status
+        socket.emit('mark message delivered', {
+            messageId,
+            chatId,
+            userId,
+            deliveredBy: response.data.updatedMessage.deliveredBy,
+            readBy: response.data.updatedMessage.readBy,
+            isRead: response.data.updatedMessage.isRead
+        });
     } catch (error) {
         console.error("Error marking message as delivered:", error);
-        throw new Error("Failed to mark message as delivered. Please try again.");
+        throw new Error("Failed to mark message as delivered");
     }
 };

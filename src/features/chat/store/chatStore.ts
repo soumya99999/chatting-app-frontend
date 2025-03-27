@@ -7,7 +7,9 @@ import {
     joinChat,
     sendMessageSocket,
     onMessageReceived,
-    onMessageStatusUpdate, 
+    onMessageStatusUpdate,
+    onMessageDelivered,
+    onMessageRead,
     onUserOnline,
     onUserOffline,
     onUserTyping,
@@ -16,7 +18,7 @@ import {
     stopTyping
 } from '../socket/socket';
 import type { Chat, Message } from '../types/chatInterface';
-import { useUserStore } from '../../user/store/userStore';
+import { useAuthStore } from '../../auth/store/authStore';
 
 interface ChatState {
     chats: Chat[];
@@ -64,10 +66,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
             if (!chat || !chat._id) {
                 throw new Error('Invalid chat data received');
             }
-            console.log("Selected Chat after accessChat:", chat);
-            set({ selectedChat: chat, loading: false });
+            // console.log("Selected Chat after accessChat:", chat);
+            set({ selectedChat: chat, loading: false, typingUsers: new Set() });
             joinChat(chat._id);
             await get().fetchMessages(chat._id);
+
+            // Mark all unread messages as read when opening the chat
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser?.id) {
+                const unreadMessages = chat.messages.filter(
+                    msg => msg.senderId !== currentUser.id && !msg.readBy.includes(currentUser.id)
+                );
+
+                // Mark each unread message as read
+                for (const message of unreadMessages) {
+                    try {
+                        await markMessageAsRead(message._id, chat._id, currentUser.id);
+                    } catch (error) {
+                        console.error('Failed to mark message as read:', error);
+                    }
+                }
+            }
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to access chat';
             set({ error: message, loading: false });
@@ -79,7 +98,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ loading: true, error: null });
         try {
             const messages = await fetchMessages(chatId);
-            console.log('Fetched messages:', messages);
+            // console.log('Fetched messages:', messages);
             set({ messages, loading: false });
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to fetch messages';
@@ -90,8 +109,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     sendMessage: async (chatId: string, content: string, contentType: 'text' | 'sticker' | 'gif' = 'text') => {
         try {
-            const user = useUserStore.getState().currentUser;
+            const user = useAuthStore.getState().user;
             if (!user?.id) throw new Error('User not authenticated');
+            
+            // Get the recipient's ID from the selected chat
+            const selectedChat = get().selectedChat;
+            if (!selectedChat) throw new Error('No chat selected');
+            
+            const recipientId = selectedChat.users.find(u => u.id !== user.id)?.id;
+            if (!recipientId) throw new Error('No recipient found');
+
             const message: Message = {
                 chatId,
                 content,
@@ -109,13 +136,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 isRead: false,
                 _id: '' // Backend will assign _id
             };
+
             const sentMessage = await sendMessage(message);
-            console.log('Sent message:', sentMessage);
             sendMessageSocket(sentMessage);
+
+            // Update the message in the store
             set((state) => {
-                console.log("Adding sent message to chat:", chatId);
-                return { messages: [...state.messages, sentMessage] };
+                const updatedMessages = [...state.messages, sentMessage];
+                return { messages: updatedMessages };
             });
+
+            // If recipient is online, mark message as delivered immediately
+            if (get().onlineUsers.has(recipientId)) {
+                try {
+                    await markMessageDelivered(sentMessage._id, chatId, recipientId);
+                } catch (error) {
+                    console.error('Failed to mark message as delivered:', error);
+                }
+            }
+
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to send message';
             console.error('Failed to send message:', error);
@@ -125,37 +164,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     },
 
     initializeSocket: (userId: string) => {
-        // console.log("Initializing socket for user:", userId);
-
         initializeSocket(userId);
+        
         onMessageReceived((message) => {
-            console.log("Message received in store:", message);
             const currentChat = get().selectedChat;
-            console.log("Current chat:", currentChat);
             if (currentChat && message.chatId === currentChat._id) {
                 set((state) => {
                     const isDuplicate = state.messages.some((msg) => msg._id === message._id);
                     if (!isDuplicate) {
-                        console.log("Adding new message to chat:", currentChat._id);
                         return { messages: [...state.messages, message] };
                     }
-                    console.log("Message already exists, skipping:", message._id);
                     return state;
                 });
-            } else {
-                console.log("Message ignored: Chat not selected or mismatch");
             }
         });
 
-        onUserOnline((onlineUserId: string) => {
-            // console.log('User online:', onlineUserId);
-            set((state) => ({
-                onlineUsers: new Set([...state.onlineUsers, onlineUserId])
-            }));
-        });
-
-        onMessageStatusUpdate((data) => { // Updated from onMessageRead
-            // console.log("Message status update received:", data);
+        onMessageDelivered((data) => {
             const currentChat = get().selectedChat;
             if (currentChat && data.chatId === currentChat._id) {
                 set((state) => {
@@ -163,38 +187,68 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         msg._id === data.messageId
                             ? {
                                 ...msg,
-                                deliveredBy: data.deliveredBy || msg.deliveredBy, // Update deliveredBy
-                                readBy: data.readBy || msg.readBy, // Update readBy
-                                isRead: data.isRead || msg.isRead // Update isRead
+                                deliveredBy: data.deliveredBy || msg.deliveredBy,
+                                readBy: data.readBy || msg.readBy,
+                                isRead: data.isRead || msg.isRead
                             }
                             : msg
                     );
-                    return { messages: updatedMessages } as Partial<ChatState>;
+                    return { messages: updatedMessages };
                 });
             }
         });
 
-        onUserOffline((offlineUserId: string) => {
-            // console.log('User offline:', offlineUserId);
+        onMessageRead((data) => {
+            const currentChat = get().selectedChat;
+            if (currentChat && data.chatId === currentChat._id) {
+                set((state) => {
+                    const updatedMessages = state.messages.map((msg) =>
+                        msg._id === data.messageId
+                            ? {
+                                ...msg,
+                                deliveredBy: data.deliveredBy || msg.deliveredBy,
+                                readBy: data.readBy || msg.readBy,
+                                isRead: data.isRead || msg.isRead
+                            }
+                            : msg
+                    );
+                    return { messages: updatedMessages };
+                });
+            }
+        });
+
+        onUserOnline((onlineUserId: string) => {
             set((state) => {
-                const newOnlineUsers = new Set(state.onlineUsers);
-                newOnlineUsers.delete(offlineUserId);
-                return { onlineUsers: newOnlineUsers };
+                const newOnlineUsers = new Set([...state.onlineUsers, onlineUserId]);
+                // When a user comes online, mark all their unread messages as delivered
+                const updatedMessages = state.messages.map((msg) => {
+                    if (msg.senderId === onlineUserId && !msg.deliveredBy.includes(onlineUserId)) {
+                        return {
+                            ...msg,
+                            deliveredBy: [...msg.deliveredBy, onlineUserId]
+                        };
+                    }
+                    return msg;
+                });
+                return { 
+                    onlineUsers: newOnlineUsers,
+                    messages: updatedMessages
+                };
             });
         });
 
         onUserTyping(({ chatId, userId }) => {
-            console.log('User typing in chat:', { chatId, userId });
             const currentChat = get().selectedChat;
             if (currentChat && currentChat._id === chatId) {
-                set((state) => ({
-                    typingUsers: new Set([...state.typingUsers, userId])
-                }));
+                set((state) => {
+                    const newTypingUsers = new Set(state.typingUsers);
+                    newTypingUsers.add(userId);
+                    return { typingUsers: newTypingUsers };
+                });
             }
         });
 
         onUserStoppedTyping(({ chatId, userId }) => {
-            console.log('User stopped typing in chat:', { chatId, userId });
             const currentChat = get().selectedChat;
             if (currentChat && currentChat._id === chatId) {
                 set((state) => {
@@ -204,23 +258,70 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 });
             }
         });
+
+        onUserOffline((offlineUserId: string) => {
+            set((state) => {
+                const newOnlineUsers = new Set(state.onlineUsers);
+                newOnlineUsers.delete(offlineUserId);
+                const newTypingUsers = new Set(state.typingUsers);
+                newTypingUsers.delete(offlineUserId);
+                return { 
+                    onlineUsers: newOnlineUsers,
+                    typingUsers: newTypingUsers
+                };
+            });
+        });
+
+        onMessageStatusUpdate((data) => {
+            const currentChat = get().selectedChat;
+            if (currentChat && data.chatId === currentChat._id) {
+                set((state) => {
+                    const updatedMessages = state.messages.map((msg) =>
+                        msg._id === data.messageId
+                            ? {
+                                ...msg,
+                                deliveredBy: data.deliveredBy || msg.deliveredBy,
+                                readBy: data.readBy || msg.readBy,
+                                isRead: data.isRead || msg.isRead
+                            }
+                            : msg
+                    );
+                    return { messages: updatedMessages };
+                });
+            }
+        });
     },
 
     setTyping: (chatId: string, isTyping: boolean) => {
         const chat = get().selectedChat;
         if (!chat) return;
-        const chatUsers = chat.users.map(user => user.id);
-        console.log(`Setting typing for chat ${chatId}:`, isTyping);
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser?.id) {
+            console.error('No current user found when setting typing status');
+            return;
+        }
+
+        set((state) => {
+            const newTypingUsers = new Set(state.typingUsers);
+            if (isTyping) {
+                newTypingUsers.add(currentUser.id);
+            } else {
+                newTypingUsers.delete(currentUser.id);
+            }
+            return { typingUsers: newTypingUsers };
+        });
+
+        // console.log(`Setting typing for chat ${chatId}:`, isTyping);
         if (isTyping) {
-            startTyping(chatId, chatUsers);
+            startTyping(chatId, currentUser.id);
         } else {
-            stopTyping(chatId, chatUsers);
+            stopTyping(chatId, currentUser.id);
         }
     },
 
     markMessageAsRead: async (messageId: string, chatId: string) => {
         try {
-            const user = useUserStore.getState().currentUser;
+            const user = useAuthStore.getState().user;
             if (!user?.id) throw new Error('User not authenticated');
             console.log("Attempting to mark message as read:", { messageId, chatId, userId: user.id });
 
@@ -236,7 +337,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     markMessageDelivered: async (messageId: string, chatId: string) => {
         try {
-            const user = useUserStore.getState().currentUser;
+            const user = useAuthStore.getState().user;
             if (!user?.id) throw new Error('User not authenticated');
             console.log("Attempting to mark message as delivered:", { messageId, chatId, userId: user.id });
 

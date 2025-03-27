@@ -60,9 +60,9 @@
   display: none;
 }
 .picker-container .EmojiPickerReact {
-  background-color: #1f2937 !important; /* bg-gray-800 */
+  background-color: #1f2937 !important;
   border: none !important;
-  border-radius: 0.5rem !important; /* rounded-lg */
+  border-radius: 0.5rem !important;
 }
 .picker-container .EmojiPickerReact .epr-body {
   background-color: #1f2937 !important;
@@ -80,5 +80,50 @@
   background-color: #1f2937 !important;
 }
 .picker-container .epr-emoji-category-label {
-  color: #ffffff !important; /* White text for categories */
+  color: #ffffff !important;
+}
+
+
+/* src/features/chat/components/ChatMain.css */ 
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.picker-container {
+  width: 26%;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.picker-container .EmojiPickerReact {
+  background-color: #1f2937 !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+}
+.picker-container .EmojiPickerReact .epr-body {
+  background-color: #1f2937 !important;
+}
+.picker-container .EmojiPickerReact .epr-header {
+  background-color: #1f2937 !important;
+}
+.picker-container .EmojiPickerReact .epr_-orqfm8 {
+  background-color: #4a4e69 !important;
+}
+.picker-container .EmojiPickerReact .epr-body::-webkit-scrollbar {
+  display: none;
+}
+.picker-container .EmojiPickerReact .epr-emoji-category-label {
+  background-color: #1f2937 !important;
+}
+.picker-container .epr-emoji-category-label {
+  color: #ffffff !important;
+}
+.sent-receipt {
+  color: #666;
+}
+.delivered-receipt {
+  color: #666;
+}
+.read-receipt {
+  color: #007bff;
 }

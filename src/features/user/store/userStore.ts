@@ -1,5 +1,7 @@
+// src/features/user/store/userStore.ts
 import { create } from 'zustand';
-import { fetchCurrentUser, searchUser, fetchUsers, logout } from '../services/userService';
+import {  searchUser, fetchUsers } from '../services/userService';
+import { authService } from '../../auth/services/authService';
 
 export interface User {
   id: string;
@@ -12,58 +14,59 @@ export interface UserState {
   currentUser: User | null;
   users: User[];
   searchResults: User[];
-  loading: boolean;
+  loadingCurrentUser: boolean;
+  loadingUsers: boolean;
+  loadingSearch: boolean;
   error: string | null;
   fetchCurrentUser: () => Promise<void>;
   searchUsers: (query: string) => Promise<void>;
   fetchAllUsers: () => Promise<void>;
-  logout: () => Promise<void>;
+  clearError: () => void;
 }
 
 export const useUserStore = create<UserState>((set) => ({
   currentUser: null,
   users: [],
   searchResults: [],
-  loading: false,
+  loadingCurrentUser: false,
+  loadingUsers: false,
+  loadingSearch: false,
   error: null,
 
   fetchCurrentUser: async () => {
-    set({ loading: true, error: null });
+    set({ loadingCurrentUser: true, error: null });
     try {
-      const user = await fetchCurrentUser();
-      set({ currentUser: user, loading: false });
-    } catch (error) {
-      set({ error: (error as Error).message || 'Failed to fetch current user', loading: false });
+      const user = await authService.fetchCurrentUser();
+      set({ currentUser: user, loadingCurrentUser: false });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch current user';
+      set({ error: message, loadingCurrentUser: false });
     }
   },
 
   searchUsers: async (query) => {
-    set({ loading: true, error: null });
+    set({ loadingSearch: true, error: null });
     try {
       const results = await searchUser(query);
-      set({ searchResults: results, loading: false });
-    } catch (error) {
-      set({ error: (error as Error).message || 'Failed to search users', loading: false });
+      set({ searchResults: results, loadingSearch: false });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to search users';
+      set({ error: message, loadingSearch: false });
     }
   },
 
   fetchAllUsers: async () => {
-    set({ loading: true, error: null });
+    set({ loadingUsers: true, error: null });
     try {
       const users = await fetchUsers();
-      set({ users, loading: false });
-    } catch (error) {
-      set({ error: (error as Error).message || 'Failed to fetch users', loading: false });
+      set({ users, loadingUsers: false });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch users';
+      set({ error: message, loadingUsers: false });
     }
   },
 
-  logout: async () => {
-    set({ loading: true, error: null });
-    try {
-      await logout();
-      set({ currentUser: null, users: [], searchResults: [], loading: false }); // Reset state
-    } catch (error) {
-      set({ error: (error as Error).message || 'Failed to logout', loading: false });
-    }
+  clearError: () => {
+    set({ error: null });
   },
 }));

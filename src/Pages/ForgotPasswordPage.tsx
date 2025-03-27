@@ -15,7 +15,7 @@ const ForgotPasswordPage: React.FC = () => {
     otp: '',
     newPassword: ''
   });
-  const { sendOTP, verifyOTP, isLoading } = useAuthStore();
+  const { sendOTP, verifyOTP, loadingOTP,loadingVerifyOTP } = useAuthStore();
   const navigate = useNavigate();
 
   const handleRequestOtp = async (e: React.FormEvent) => {
@@ -79,8 +79,8 @@ const ForgotPasswordPage: React.FC = () => {
             error={errors.email}
             required
           />
-          <AuthButton type="submit" disabled={isLoading}>
-            {isLoading ? 'Sending OTP...' : 'Send OTP'}
+          <AuthButton type="submit" disabled={loadingOTP}>
+            {loadingOTP ? 'Sending OTP...' : 'Send OTP'}
           </AuthButton>
         </AuthForm>
       ) : (
@@ -103,8 +103,8 @@ const ForgotPasswordPage: React.FC = () => {
             error={errors.newPassword}
             required
           />
-          <AuthButton type="submit" disabled={isLoading}>
-            {isLoading ? 'Resetting password...' : 'Reset Password'}
+          <AuthButton type="submit" disabled={loadingVerifyOTP}>
+            {loadingVerifyOTP ? 'Resetting password...' : 'Reset Password'}
           </AuthButton>
         </AuthForm>
       )}

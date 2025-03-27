@@ -12,20 +12,27 @@ const LogInPage: React.FC = () => {
     email: '',
     password: ''
   });
-  const { login, isLoading } = useAuthStore();
+  const { login, loadingLogin } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log("Submitting started");
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm()){
+      console.log("validate form = ",validateForm);
+      return;
+    }
 
     try {
-      await login(formState);
-      if(formState) {
-        navigate('/chat');
-      }
+      console.log("form State :", formState);
+      const user = await login(formState);
+      console.log("Logged in successfully with user:", user);
+      
+      // Navigate immediately after successful login
+      navigate('/chat');
     } catch (error) {
       console.error('Login error:', error);
+      alert(error instanceof Error ? error.message : 'Login failed. Please try again.');
     }
   };
 
@@ -55,8 +62,8 @@ const LogInPage: React.FC = () => {
             Forgot Password?
           </Link>
         </div>
-        <AuthButton type="submit" disabled={isLoading}>
-          {isLoading ? 'Logging in...' : 'Log In'}
+        <AuthButton type="submit" disabled={loadingLogin}>
+          {loadingLogin ? 'Logging in...' : 'Log In'}
         </AuthButton>
       </AuthForm>
     </AuthLayout>
