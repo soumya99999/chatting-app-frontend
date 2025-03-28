@@ -155,8 +155,33 @@ export const authService = {
   },
 
   async googleLogin(): Promise<void> {
-    window.location.href = `${API_BASE_URL}/google-login`;
-    // Note: After redirect, the backend should redirect back to the frontend (e.g., /chat)
-    // You'll need a route to handle the callback and call fetchCurrentUser
-  }
+    try {
+      // Redirect to the backend's Google OAuth route
+      window.location.href = `${API_BASE_URL}/google`;
+    } catch (error) {
+      console.error('Error initiating Google login:', error);
+      throw new Error('Failed to initiate Google login');
+    }
+  },
+
+  async handleGoogleCallback(): Promise<AuthResponse> {
+    try {
+      console.log('Starting handleGoogleCallback in authService...');
+      const response = await axiosInstance.get(`${USER_BASE_URL}/current-user`);
+      console.log('Current user response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error in handleGoogleCallback:', error);
+      if (error instanceof AxiosError) {
+        console.error('Axios error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        const message = error.response?.data?.message || 'Failed to complete Google authentication';
+        throw new Error(message);
+      }
+      throw new Error('Failed to complete Google authentication');
+    }
+  },
 };

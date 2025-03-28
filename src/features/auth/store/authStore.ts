@@ -97,6 +97,24 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Google login failed';
       set({ error: message, loadingGoogleLogin: false });
+      throw error;
+    }
+  },
+
+  handleGoogleCallback: async () => {
+    console.log('Starting handleGoogleCallback in authStore...');
+    set({ loadingFetchUser: true, error: null });
+    try {
+      console.log('Calling authService.handleGoogleCallback...');
+      const { user } = await authService.handleGoogleCallback();
+      console.log('Received user data:', user);
+      set({ user, isAuthenticated: true, loadingFetchUser: false });
+      console.log('Updated auth store state:', { user, isAuthenticated: true });
+    } catch (error: unknown) {
+      console.error('Error in handleGoogleCallback:', error);
+      const message = error instanceof Error ? error.message : 'Failed to complete Google authentication';
+      set({ error: message, loadingFetchUser: false });
+      throw error;
     }
   },
 

@@ -49,6 +49,7 @@ export interface AuthState {
   sendOTP: (otpRequest: OTPRequest) => Promise<void>;
   verifyOTP: (otpData: OTPVerification & { newPassword: string }) => Promise<void>;
   googleLogin: () => Promise<void>;
+  handleGoogleCallback: () => Promise<void>;
   clearError: () => void;
 }
 
