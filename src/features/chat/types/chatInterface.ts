@@ -53,6 +53,7 @@ export interface RawChat {
     latestMessage?: RawMessage;
     createdAt: string;
     updatedAt: string;
+    groupIcon?: string;
 }
 
 export interface Chat {
@@ -64,6 +65,7 @@ export interface Chat {
     lastMessage?: Message;
     createdAt: Date;
     updatedAt: Date;
+    groupIcon?: string;
 }
 
 export interface ChatState {

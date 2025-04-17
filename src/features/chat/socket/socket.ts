@@ -1,6 +1,7 @@
 // src/features/chat/socket/socket.ts
 import io from "socket.io-client";
 import type { Message } from "../types/chatInterface";
+import { useChatStore } from "../store/chatStore";
 
 const SOCKET_URL = "http://localhost:8081";
 
@@ -10,13 +11,21 @@ export const socket = io(SOCKET_URL, {
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
+    autoConnect: true
 });
 
 // src/features/chat/socket/socket.ts
 export const initializeSocket = (userId: string) => {
     try {
         socket.emit("setup", userId);
-        socket.on("connect", () => console.log("Socket connected to:", SOCKET_URL));
+        socket.on("connect", () => {
+            console.log("Socket connected to:", SOCKET_URL);
+            // Join all existing chats for this user
+            const currentChat = useChatStore.getState().selectedChat;
+            if (currentChat) {
+                joinChat(currentChat._id);
+            }
+        });
         socket.on("disconnect", () => console.log("Socket disconnected"));
         socket.on("connect_error", (error) => console.error("Socket connection error:", error));
     } catch (error) {
@@ -26,7 +35,7 @@ export const initializeSocket = (userId: string) => {
 
 export const joinChat = (chatId: string) => {
     try {
-        // console.log("Joining chat with ID:", chatId);
+        console.log("Joining chat with ID:", chatId);
         socket.emit("join chat", chatId);
     } catch (error) {
         console.error("Error joining chat:", error);
@@ -34,44 +43,72 @@ export const joinChat = (chatId: string) => {
 };
 
 export const sendMessageSocket = (message: Message) => {
-    console.log("Sending message via socket:", message); // Add logging for sent messages
+    console.log("Sending message via socket:", message);
 
     try {
         socket.emit("new message", {
             ...message,
             timestamp: message.timestamp.toISOString(),
         });
-        // console.log("Message sent via socket:", message);
+        console.log("Message sent via socket:", message);
     } catch (error) {
         console.error("Error sending message via socket:", error);
     }
 };
 
 export const onMessageReceived = (callback: (message: Message) => void) => {
-    // console.log("Setting up message received listener"); // Add logging for listener setup
+    console.log("Setting up message received listener");
 
     try {
-        socket.on("message received", (rawMessage: Message) => {
-            // console.log("Raw message received via socket:", rawMessage);
-            const message: Message = {
-                _id: rawMessage._id,
-                chatId: rawMessage.chatId,
-                senderId: rawMessage.senderId,
-                sender: {
-                    _id: rawMessage.senderId,
-                    name: rawMessage.sender.name || '',
-                    email: rawMessage.sender.email || '',
-                    profilePicture: rawMessage.sender.profilePicture
-                },
-                content: rawMessage.content,
-                contentType: rawMessage.contentType || 'text',
-                timestamp: new Date(rawMessage.timestamp),
-                deliveredBy: rawMessage.deliveredBy || [], // Include deliveredBy
-                readBy: rawMessage.readBy || [],
-                isRead: rawMessage.isRead || false
-            };
-            // console.log("Message received via socket:", message);
-            callback(message);
+        let lastProcessedMessageId: string | null = null;
+        let lastProcessedTimestamp: number = 0;
+        let processingMessage = false;
+
+        socket.on("new message", (rawMessage: Message) => {
+            const now = Date.now();
+            
+            // Prevent processing the same message ID within 1 second
+            if (rawMessage._id === lastProcessedMessageId && (now - lastProcessedTimestamp) < 1000) {
+                console.log("Duplicate message received, ignoring:", rawMessage._id);
+                return;
+            }
+
+            // Prevent concurrent processing of the same message
+            if (processingMessage) {
+                console.log("Message processing in progress, ignoring:", rawMessage._id);
+                return;
+            }
+
+            processingMessage = true;
+            console.log("Raw message received via socket:", rawMessage);
+
+            try {
+                const message: Message = {
+                    _id: rawMessage._id,
+                    chatId: rawMessage.chatId,
+                    senderId: rawMessage.senderId,
+                    sender: {
+                        _id: rawMessage.senderId,
+                        name: rawMessage.sender.name || '',
+                        email: rawMessage.sender.email || '',
+                        profilePicture: rawMessage.sender.profilePicture
+                    },
+                    content: rawMessage.content,
+                    contentType: rawMessage.contentType || 'text',
+                    timestamp: new Date(rawMessage.timestamp),
+                    deliveredBy: rawMessage.deliveredBy || [],
+                    readBy: rawMessage.readBy || [],
+                    isRead: rawMessage.isRead || false
+                };
+
+                lastProcessedMessageId = message._id;
+                lastProcessedTimestamp = now;
+
+                console.log("Message received via socket:", message);
+                callback(message);
+            } finally {
+                processingMessage = false;
+            }
         });
     } catch (error) {
         console.error("Error setting up message listener:", error);
@@ -160,9 +197,22 @@ export const markMessageDelivered = (messageId: string, chatId: string, userId: 
 
 export const onMessageStatusUpdate = (callback: (data: { messageId: string; chatId: string; userId: string; deliveredBy: string[]; readBy: string[]; isRead: boolean }) => void) => {
     try {
+        let lastProcessedMessageId: string | null = null;
+        let lastProcessedTimestamp: number = 0;
+
         socket.on("message status update", (data) => {
+            const now = Date.now();
+            // Prevent processing the same message ID within 1 second
+            if (data.messageId === lastProcessedMessageId && (now - lastProcessedTimestamp) < 1000) {
+                return;
+            }
+
             console.log("Message status update received:", data);
             const { messageId, chatId, userId, deliveredBy = [], readBy = [], isRead = false } = data;
+            
+            lastProcessedMessageId = messageId;
+            lastProcessedTimestamp = now;
+            
             callback({ messageId, chatId, userId, deliveredBy, readBy, isRead });
         });
     } catch (error) {
@@ -172,9 +222,22 @@ export const onMessageStatusUpdate = (callback: (data: { messageId: string; chat
 
 export const onMessageDelivered = (callback: (data: { messageId: string; chatId: string; userId: string; deliveredBy: string[]; readBy: string[]; isRead: boolean }) => void) => {
     try {
+        let lastProcessedMessageId: string | null = null;
+        let lastProcessedTimestamp: number = 0;
+
         socket.on("message delivered", (data) => {
+            const now = Date.now();
+            // Prevent processing the same message ID within 1 second
+            if (data.messageId === lastProcessedMessageId && (now - lastProcessedTimestamp) < 1000) {
+                return;
+            }
+
             console.log("Message delivered event received:", data);
             const { messageId, chatId, userId, deliveredBy = [], readBy = [], isRead = false } = data;
+            
+            lastProcessedMessageId = messageId;
+            lastProcessedTimestamp = now;
+            
             callback({ messageId, chatId, userId, deliveredBy, readBy, isRead });
         });
     } catch (error) {

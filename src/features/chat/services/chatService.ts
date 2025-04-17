@@ -85,10 +85,10 @@ export const fetchChats = async (): Promise<Chat[]> => {
     }
 };
 
-export const accessChat = async (userId: string): Promise<Chat> => {
+export const accessChat = async (userId: string, chatId?: string): Promise<Chat> => {
     try {
-        console.log('Accessing chat with userId:', userId);
-        const response = await axiosInstance.post('/access-chat', { userId });
+        console.log('Accessing chat with userId:', userId, 'chatId:', chatId);
+        const response = await axiosInstance.post('/access-chat', { userId, chatId });
         console.log('Access chat response:', response.data);
         
         const chat: RawChat = response.data;
