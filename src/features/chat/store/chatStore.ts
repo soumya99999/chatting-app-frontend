@@ -5,7 +5,6 @@ import { fetchMessages, sendMessage, markMessageAsRead, markMessageDelivered } f
 import {
     initializeSocket,
     joinChat,
-    sendMessageSocket,
     onMessageReceived,
     onMessageStatusUpdate,
     onMessageDelivered,
@@ -296,7 +295,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 const newOnlineUsers = new Set(state.onlineUsers);
                 newOnlineUsers.delete(offlineUserId);
                 const newTypingUsers = new Map(state.typingUsers);
-                newTypingUsers.forEach((users, chatId) => {
+                newTypingUsers.forEach((users) => {
                     users.delete(offlineUserId);
                 });
                 return { 
