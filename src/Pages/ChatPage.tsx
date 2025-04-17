@@ -1,6 +1,5 @@
 // src/pages/ChatPage.tsx
 import React, { useEffect, useState } from 'react';
-import ChatHeader from '../Components/ChatHeader';
 import ChatSidebar from '../features/chat/components/ChatSidebar';
 import ChatMain from '../features/chat/components/ChatMain';
 import { useChatStore } from '../features/chat/store/chatStore';
@@ -57,7 +56,6 @@ const ChatPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-teal-900 text-white flex flex-col">
-            <ChatHeader />
             {!isSidebarOpen && (
                 <div className="bg-teal-800 p-4">
                     <h3 className="text-lg font-bold mb-2">All Users</h3>

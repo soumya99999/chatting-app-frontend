@@ -27,15 +27,15 @@ interface ChatState {
     loading: boolean;
     error: string | null;
     onlineUsers: Set<string>;
-    typingUsers: Set<string>;
+    typingUsers: Map<string, Set<string>>;
     fetchChats: () => Promise<void>;
-    accessChat: (userId: string) => Promise<void>;
+    accessChat: (userId: string, chatId?: string) => Promise<void>;
     fetchMessages: (chatId: string) => Promise<void>;
     sendMessage: (chatId: string, content: string, contentType?: 'text' | 'sticker' | 'gif') => Promise<void>;
     initializeSocket: (userId: string) => void;
     setTyping: (chatId: string, isTyping: boolean) => void;
     markMessageAsRead: (messageId: string, chatId: string) => Promise<void>;
-    markMessageDelivered: (messageId: string, chatId: string) => Promise<void>; // New method
+    markMessageDelivered: (messageId: string, chatId: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -45,7 +45,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     loading: false,
     error: null,
     onlineUsers: new Set(),
-    typingUsers: new Set(),
+    typingUsers: new Map(),
 
     fetchChats: async () => {
         set({ loading: true, error: null });
@@ -59,15 +59,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
     },
 
-    accessChat: async (userId: string) => {
+    accessChat: async (userId: string, chatId?: string) => {
         set({ loading: true, error: null });
         try {
-            const chat = await accessChat(userId);
+            const chat = await accessChat(userId, chatId);
             if (!chat || !chat._id) {
                 throw new Error('Invalid chat data received');
             }
-            // console.log("Selected Chat after accessChat:", chat);
-            set({ selectedChat: chat, loading: false, typingUsers: new Set() });
+            set({ selectedChat: chat, loading: false, typingUsers: new Map() });
             joinChat(chat._id);
             await get().fetchMessages(chat._id);
 
@@ -112,13 +111,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const user = useAuthStore.getState().user;
             if (!user?.id) throw new Error('User not authenticated');
             
-            // Get the recipient's ID from the selected chat
             const selectedChat = get().selectedChat;
             if (!selectedChat) throw new Error('No chat selected');
             
-            const recipientId = selectedChat.users.find(u => u.id !== user.id)?.id;
-            if (!recipientId) throw new Error('No recipient found');
-
             const message: Message = {
                 chatId,
                 content,
@@ -131,27 +126,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     profilePicture: user.profilePicture
                 },
                 timestamp: new Date(),
-                deliveredBy: [user.id], // Include deliveredBy for initial state
-                readBy: [user.id], // Initially read by sender
+                deliveredBy: [user.id],
+                readBy: [user.id],
                 isRead: false,
-                _id: '' // Backend will assign _id
+                _id: ''
             };
 
             const sentMessage = await sendMessage(message);
-            sendMessageSocket(sentMessage);
+            console.log("Message sent successfully:", sentMessage._id);
 
             // Update the message in the store
             set((state) => {
-                const updatedMessages = [...state.messages, sentMessage];
-                return { messages: updatedMessages };
+                const isDuplicate = state.messages.some(msg => msg._id === sentMessage._id);
+                if (!isDuplicate) {
+                    console.log("Adding sent message to store:", sentMessage._id);
+                    return { messages: [...state.messages, sentMessage] };
+                }
+                console.log("Duplicate message ignored in store:", sentMessage._id);
+                return state;
             });
 
-            // If recipient is online, mark message as delivered immediately
-            if (get().onlineUsers.has(recipientId)) {
-                try {
-                    await markMessageDelivered(sentMessage._id, chatId, recipientId);
-                } catch (error) {
-                    console.error('Failed to mark message as delivered:', error);
+            // Handle message delivery status
+            if (selectedChat.isGroupChat) {
+                // For group chats, mark as delivered to all online members
+                const onlineMembers = selectedChat.users
+                    .filter(u => u.id !== user.id && get().onlineUsers.has(u.id))
+                    .map(u => u.id);
+                
+                if (onlineMembers.length > 0) {
+                    try {
+                        await markMessageDelivered(sentMessage._id, chatId, user.id);
+                    } catch (error) {
+                        console.error('Failed to mark message as delivered:', error);
+                    }
+                }
+            } else {
+                // For one-to-one chat, mark as delivered if recipient is online
+                const recipientId = selectedChat.users.find(u => u.id !== user.id)?.id;
+                if (recipientId && get().onlineUsers.has(recipientId)) {
+                    try {
+                        await markMessageDelivered(sentMessage._id, chatId, recipientId);
+                    } catch (error) {
+                        console.error('Failed to mark message as delivered:', error);
+                    }
                 }
             }
 
@@ -170,10 +187,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const currentChat = get().selectedChat;
             if (currentChat && message.chatId === currentChat._id) {
                 set((state) => {
+                    // Check if message already exists in the store
                     const isDuplicate = state.messages.some((msg) => msg._id === message._id);
                     if (!isDuplicate) {
+                        console.log("Adding received message to store:", message._id);
                         return { messages: [...state.messages, message] };
                     }
+                    console.log("Duplicate message ignored in store:", message._id);
                     return state;
                 });
             }
@@ -187,9 +207,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         msg._id === data.messageId
                             ? {
                                 ...msg,
-                                deliveredBy: data.deliveredBy || msg.deliveredBy,
+                                deliveredBy: [...new Set([...msg.deliveredBy, ...(data.deliveredBy || [])])],
                                 readBy: data.readBy || msg.readBy,
-                                isRead: data.isRead || msg.isRead
+                                isRead: data.isRead
                             }
                             : msg
                     );
@@ -207,69 +227,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
                             ? {
                                 ...msg,
                                 deliveredBy: data.deliveredBy || msg.deliveredBy,
-                                readBy: data.readBy || msg.readBy,
-                                isRead: data.isRead || msg.isRead
+                                readBy: [...new Set([...msg.readBy, ...(data.readBy || [])])],
+                                isRead: data.isRead
                             }
                             : msg
                     );
                     return { messages: updatedMessages };
                 });
             }
-        });
-
-        onUserOnline((onlineUserId: string) => {
-            set((state) => {
-                const newOnlineUsers = new Set([...state.onlineUsers, onlineUserId]);
-                // When a user comes online, mark all their unread messages as delivered
-                const updatedMessages = state.messages.map((msg) => {
-                    if (msg.senderId === onlineUserId && !msg.deliveredBy.includes(onlineUserId)) {
-                        return {
-                            ...msg,
-                            deliveredBy: [...msg.deliveredBy, onlineUserId]
-                        };
-                    }
-                    return msg;
-                });
-                return { 
-                    onlineUsers: newOnlineUsers,
-                    messages: updatedMessages
-                };
-            });
-        });
-
-        onUserTyping(({ chatId, userId }) => {
-            const currentChat = get().selectedChat;
-            if (currentChat && currentChat._id === chatId) {
-                set((state) => {
-                    const newTypingUsers = new Set(state.typingUsers);
-                    newTypingUsers.add(userId);
-                    return { typingUsers: newTypingUsers };
-                });
-            }
-        });
-
-        onUserStoppedTyping(({ chatId, userId }) => {
-            const currentChat = get().selectedChat;
-            if (currentChat && currentChat._id === chatId) {
-                set((state) => {
-                    const newTypingUsers = new Set(state.typingUsers);
-                    newTypingUsers.delete(userId);
-                    return { typingUsers: newTypingUsers };
-                });
-            }
-        });
-
-        onUserOffline((offlineUserId: string) => {
-            set((state) => {
-                const newOnlineUsers = new Set(state.onlineUsers);
-                newOnlineUsers.delete(offlineUserId);
-                const newTypingUsers = new Set(state.typingUsers);
-                newTypingUsers.delete(offlineUserId);
-                return { 
-                    onlineUsers: newOnlineUsers,
-                    typingUsers: newTypingUsers
-                };
-            });
         });
 
         onMessageStatusUpdate((data) => {
@@ -282,13 +247,63 @@ export const useChatStore = create<ChatState>((set, get) => ({
                                 ...msg,
                                 deliveredBy: data.deliveredBy || msg.deliveredBy,
                                 readBy: data.readBy || msg.readBy,
-                                isRead: data.isRead || msg.isRead
+                                isRead: data.isRead
                             }
                             : msg
                     );
                     return { messages: updatedMessages };
                 });
             }
+        });
+
+        onUserOnline((onlineUserId: string) => {
+            set((state) => {
+                const newOnlineUsers = new Set([...state.onlineUsers, onlineUserId]);
+                return { onlineUsers: newOnlineUsers };
+            });
+        });
+
+        onUserTyping(({ chatId, userId }) => {
+            set((state) => {
+                const newTypingUsers = new Map(state.typingUsers);
+                if (!newTypingUsers.has(chatId)) {
+                    newTypingUsers.set(chatId, new Set());
+                }
+                const chatTypingUsers = newTypingUsers.get(chatId);
+                if (chatTypingUsers) {
+                    chatTypingUsers.add(userId);
+                }
+                return { typingUsers: newTypingUsers };
+            });
+        });
+
+        onUserStoppedTyping(({ chatId, userId }) => {
+            set((state) => {
+                const newTypingUsers = new Map(state.typingUsers);
+                const chatTypingUsers = newTypingUsers.get(chatId);
+                if (chatTypingUsers) {
+                    chatTypingUsers.delete(userId);
+                    if (chatTypingUsers.size === 0) {
+                        newTypingUsers.delete(chatId);
+                    }
+                }
+                return { typingUsers: newTypingUsers };
+            });
+        });
+
+        onUserOffline((offlineUserId: string) => {
+            set((state) => {
+                const newOnlineUsers = new Set(state.onlineUsers);
+                newOnlineUsers.delete(offlineUserId);
+                const newTypingUsers = new Map(state.typingUsers);
+                newTypingUsers.forEach((users, chatId) => {
+                    users.delete(offlineUserId);
+                });
+                return { 
+                    onlineUsers: newOnlineUsers,
+                    typingUsers: newTypingUsers
+                };
+            });
         });
     },
 
@@ -302,16 +317,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
 
         set((state) => {
-            const newTypingUsers = new Set(state.typingUsers);
+            const newTypingUsers = new Map(state.typingUsers);
+            if (!newTypingUsers.has(chatId)) {
+                newTypingUsers.set(chatId, new Set());
+            }
             if (isTyping) {
-                newTypingUsers.add(currentUser.id);
+                newTypingUsers.get(chatId)?.add(currentUser.id);
             } else {
-                newTypingUsers.delete(currentUser.id);
+                newTypingUsers.get(chatId)?.delete(currentUser.id);
             }
             return { typingUsers: newTypingUsers };
         });
 
-        // console.log(`Setting typing for chat ${chatId}:`, isTyping);
         if (isTyping) {
             startTyping(chatId, currentUser.id);
         } else {
