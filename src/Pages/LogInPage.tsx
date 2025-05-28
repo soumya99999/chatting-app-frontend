@@ -62,6 +62,12 @@ const LogInPage: React.FC = () => {
             Forgot Password?
           </Link>
         </div>
+        <div className="mt-4 text-center text-white">
+          Don't have an account?{' '}
+          <Link to="/signup" className="text-amber-300 hover:text-amber-400">
+            Sign Up
+          </Link>
+        </div>
         <AuthButton type="submit" disabled={loadingLogin}>
           {loadingLogin ? 'Logging in...' : 'Log In'}
         </AuthButton>
