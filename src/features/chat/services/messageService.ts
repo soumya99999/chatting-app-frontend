@@ -1,14 +1,12 @@
-// src/features/chat/services/messageService.ts
 import axios from "axios";
 import type { Message, RawMessage } from "../types/chatInterface";
 import { socket } from "../socket/socket";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+import { API_BASE_URL } from '../../../config/apiConfig';
 
 // fetchMessages
 export const fetchMessages = async (chatId: string): Promise<Message[]> => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/api/messages/${chatId}/history`, {
+        const response = await axios.get(API_BASE_URL + "/messages/" + chatId + "/history", {
             withCredentials: true,
         });
         const messagesArray = Array.isArray(response.data) 
@@ -44,7 +42,7 @@ export const fetchMessages = async (chatId: string): Promise<Message[]> => {
 export const sendMessage = async (messageData: Message): Promise<Message> => {
     console.log("Sending message data:", messageData);
     try {
-        const response = await axios.post(`${API_BASE_URL}/api/messages/messages`, {
+        const response = await axios.post(API_BASE_URL + "/messages/messages", {
             chatId: messageData.chatId,
             content: messageData.content,
             contentType: messageData.contentType,
@@ -84,7 +82,7 @@ export const markMessageAsRead = async (messageId: string, chatId: string, userI
     console.log("Marking message as read:", { messageId, chatId, userId });
 
     try {
-        const response = await axios.put(`${API_BASE_URL}/api/messages/${messageId}/read`, { chatId, userId }, {
+        const response = await axios.put(API_BASE_URL + "/messages/" + messageId + "/read", { chatId, userId }, {
             withCredentials: true,
         });
         console.log("Message marked as read successfully:", { messageId, chatId, userId });
@@ -107,7 +105,7 @@ export const markMessageAsRead = async (messageId: string, chatId: string, userI
 export const markMessageDelivered = async (messageId: string, chatId: string, userId: string): Promise<void> => {
     console.log("message id = ",messageId,"chat Id = ",chatId);
     try {
-        const response = await axios.put(`${API_BASE_URL}/api/messages/${messageId}/delivered`, {
+        const response = await axios.put(API_BASE_URL + "/messages/" + messageId + "/delivered", {
             chatId,
             userId
         }, {

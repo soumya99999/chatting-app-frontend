@@ -8,9 +8,8 @@ import {
   OTPVerification,
   User
 } from '../types/authTypes';
+import { API_BASE_URL } from '../../../config/apiConfig';
 
-const API_BASE_URL = 'http://localhost:8081/api/auth';
-const USER_BASE_URL = 'http://localhost:8081/api/users';
 
 // Add axios instance with default config
 const axiosInstance = axios.create({
@@ -25,7 +24,7 @@ export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       console.log('Attempting login with:', credentials.email);
-      const response = await axiosInstance.post('/login', credentials);
+      const response = await axiosInstance.post('auth/login', credentials);
       console.log('Login response:', response.data);
       return response.data;
     } catch (error: unknown) {
@@ -72,7 +71,7 @@ export const authService = {
         formData.append('profilePicture', file);
       }
 
-      const response = await axios.post(`${API_BASE_URL}/register`, formData, {
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, formData, {
         withCredentials: true,
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -92,7 +91,7 @@ export const authService = {
   async fetchCurrentUser(): Promise<User> {
     try {
       console.log('Fetching current user...');
-      const response = await axiosInstance.get(`${USER_BASE_URL}/current-user`);
+      const response = await axiosInstance.get(`${API_BASE_URL}/users/current-user`);
       console.log('Current user response:', response.data);
       return response.data;
     } catch (error: unknown) {
@@ -111,7 +110,7 @@ export const authService = {
 
   async logout(): Promise<void> {
     try {
-      await axios.post(`${API_BASE_URL}/logout`, {}, {
+      await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
         withCredentials: true,
       });
     } catch (error: unknown) {
@@ -126,7 +125,7 @@ export const authService = {
 
   async sendOTP(email: OTPRequest): Promise<void> {
     try {
-      await axios.post(`${API_BASE_URL}/forgot-password/send-otp`, email, {
+      await axios.post(`${API_BASE_URL}/auth/forgot-password/send-otp`, email, {
         withCredentials: true,
       });
     } catch (error: unknown) {
@@ -141,7 +140,7 @@ export const authService = {
 
   async verifyOTP(otpData: OTPVerification & { newPassword: string }): Promise<void> {
     try {
-      await axios.post(`${API_BASE_URL}/forgot-password/verify-otp`, otpData, {
+      await axios.post(`${API_BASE_URL}/auth/forgot-password/verify-otp`, otpData, {
         withCredentials: true,
       });
     } catch (error: unknown) {
@@ -157,7 +156,7 @@ export const authService = {
   async googleLogin(): Promise<void> {
     try {
       // Redirect to the backend's Google OAuth route
-      window.location.href = `${API_BASE_URL}/google`;
+      window.location.href = `${API_BASE_URL}/auth/google`;
     } catch (error) {
       console.error('Error initiating Google login:', error);
       throw new Error('Failed to initiate Google login');
@@ -167,7 +166,7 @@ export const authService = {
   async handleGoogleCallback(): Promise<AuthResponse> {
     try {
       console.log('Starting handleGoogleCallback in authService...');
-      const response = await axiosInstance.get(`${USER_BASE_URL}/current-user`);
+      const response = await axiosInstance.get(`${API_BASE_URL}/users/current-user`);
       console.log('Current user response:', response.data);
       return response.data;
     } catch (error) {

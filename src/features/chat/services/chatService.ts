@@ -1,8 +1,7 @@
 // src/features/chat/services/chatService.ts
 import axios, { AxiosError } from 'axios';
 import type { Chat, RawUser, RawMessage, RawChat } from '../types/chatInterface';
-
-const API_BASE_URL = 'http://localhost:8081/api/chats';
+import { API_BASE_URL } from '../../../config/apiConfig';
 
 // Create axios instance with default config
 const axiosInstance = axios.create({
@@ -16,7 +15,7 @@ const axiosInstance = axios.create({
 export const fetchChats = async (): Promise<Chat[]> => {
     try {
         console.log('Fetching chats...');
-        const response = await axiosInstance.get('/fetch-chats');
+        const response = await axiosInstance.get('/chats/fetch-chats');
         console.log('Chats response:', response.data);
         
         const chats = response.data.chats || response.data;
@@ -88,7 +87,7 @@ export const fetchChats = async (): Promise<Chat[]> => {
 export const accessChat = async (userId: string, chatId?: string): Promise<Chat> => {
     try {
         console.log('Accessing chat with userId:', userId, 'chatId:', chatId);
-        const response = await axiosInstance.post('/access-chat', { userId, chatId });
+        const response = await axiosInstance.post('/chats/access-chat', { userId, chatId });
         console.log('Access chat response:', response.data);
         
         const chat: RawChat = response.data;

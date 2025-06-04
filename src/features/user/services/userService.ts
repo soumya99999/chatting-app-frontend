@@ -1,12 +1,11 @@
 // src/features/user/services/userService.ts
 import axios, { AxiosError } from 'axios';
 import { User } from '../store/userStore';
-
-const API_BASE_URL = 'http://localhost:8081/api/users';
+import { API_BASE_URL } from '../../../config/apiConfig';
 
 export const searchUser = async (query: string): Promise<User[]> => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/search`, {
+        const response = await axios.get(API_BASE_URL + "/users/search", {
             params: { q: query },
             withCredentials: true,
         });
@@ -23,7 +22,7 @@ export const searchUser = async (query: string): Promise<User[]> => {
 
 export const fetchUsers = async (): Promise<User[]> => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/fetch-users`, {
+        const response = await axios.get(API_BASE_URL + "/users/fetch-users", {
             withCredentials: true,
         });
         return response.data.users;

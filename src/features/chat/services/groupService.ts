@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { Chat } from '../types/chatInterface';
-
-const API_URL = 'http://localhost:8081/api/chats';
-
+import {API_BASE_URL} from '../../../config/apiConfig';
 
 // Create a group chat
 export const createGroupChat = async (
@@ -11,7 +9,7 @@ export const createGroupChat = async (
 ): Promise<Chat> => {
     try {
         const response = await axios.post(
-            `${API_URL}/group`,
+            `${API_BASE_URL}/group`,
             { users: JSON.stringify(users), name },
             { withCredentials: true }
         );
@@ -31,7 +29,7 @@ export const updateGroupInfo = async (
     }
 ): Promise<Chat> => {
     try {
-        const response = await axios.put(`${API_URL}/group/${chatId}/info`, data, {
+        const response = await axios.put(`${API_BASE_URL}/group/${chatId}/info`, data, {
             withCredentials: true,
         });
         return response.data;
@@ -48,7 +46,7 @@ export const addMembers = async (
 ): Promise<Chat> => {
     try {
         const response = await axios.put(
-            `${API_URL}/group/${chatId}/add-members`,
+            `${API_BASE_URL}/group/${chatId}/add-members`,
             { userIds },
             { withCredentials: true }
         );
@@ -66,7 +64,7 @@ export const removeMembers = async (
 ): Promise<Chat> => {
     try {
         const response = await axios.put(
-            `${API_URL}/group/${chatId}/remove-members`,
+            `${API_BASE_URL}/group/${chatId}/remove-members`,
             { userIds },
             { withCredentials: true }
         );
@@ -81,7 +79,7 @@ export const removeMembers = async (
 export const leaveGroup = async (chatId: string): Promise<Chat> => {
     try {
         const response = await axios.post(
-            `${API_URL}/group/${chatId}/leave`,
+            `${API_BASE_URL}/group/${chatId}/leave`,
             {},
             { withCredentials: true }
         );
@@ -99,7 +97,7 @@ export const transferOwnership = async (
 ): Promise<Chat> => {
     try {
         const response = await axios.put(
-            `${API_URL}/group/${chatId}/transfer-ownership`,
+            `${API_BASE_URL}/group/${chatId}/transfer-ownership`,
             { newAdminId },
             { withCredentials: true }
         );
@@ -117,7 +115,7 @@ export const promoteToAdmin = async (
 ): Promise<Chat> => {
     try {
         const response = await axios.put(
-            `${API_URL}/group/${chatId}/promote-admin`,
+            `${API_BASE_URL}/group/${chatId}/promote-admin`,
             { userId },
             { withCredentials: true }
         );
@@ -135,7 +133,7 @@ export const muteUser = async (
 ): Promise<Chat> => {
     try {
         const response = await axios.put(
-            `${API_URL}/group/${chatId}/mute-user`,
+            `${API_BASE_URL}/group/${chatId}/mute-user`,
             { userId },
             { withCredentials: true }
         );
@@ -153,7 +151,7 @@ export const unmuteUser = async (
 ): Promise<Chat> => {
     try {
         const response = await axios.put(
-            `${API_URL}/group/${chatId}/unmute-user`,
+            `${API_BASE_URL}/group/${chatId}/unmute-user`,
             { userId },
             { withCredentials: true }
         );
@@ -167,7 +165,7 @@ export const unmuteUser = async (
 // Delete group
 export const deleteGroup = async (chatId: string): Promise<void> => {
     try {
-        await axios.delete(`${API_URL}/group/${chatId}`, {
+        await axios.delete(`${API_BASE_URL}/group/${chatId}`, {
             withCredentials: true,
         });
     } catch (error) {
@@ -179,7 +177,7 @@ export const deleteGroup = async (chatId: string): Promise<void> => {
 // Fetch all groups
 export const fetchGroups = async (): Promise<Chat[]> => {
     try {
-        const response = await axios.get(`${API_URL}/group`, {
+        const response = await axios.get(`${API_BASE_URL}/group`, {
             withCredentials: true,
         });
         return response.data;
