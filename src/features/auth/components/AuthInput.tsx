@@ -8,7 +8,9 @@ interface AuthInputProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   error?: string;
   required?: boolean;
+  autocomplete?: string;
 }
+
 
 const AuthInput: React.FC<AuthInputProps> = ({ 
   type, 
@@ -17,7 +19,8 @@ const AuthInput: React.FC<AuthInputProps> = ({
   value, 
   onChange, 
   error,
-  required = false 
+  required = false,
+  autocomplete
 }) => {
   return (
     <div className="mb-4">
@@ -28,6 +31,7 @@ const AuthInput: React.FC<AuthInputProps> = ({
         value={value}
         onChange={onChange}
         required={required}
+        autoComplete={autocomplete}
         className={`w-full p-3 border rounded-lg bg-white/30 placeholder-gray-200 text-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${
           error ? 'border-red-500' : ''
         }`}

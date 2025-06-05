@@ -3,7 +3,7 @@ import io from "socket.io-client";
 import type { Message } from "../types/chatInterface";
 import { useChatStore } from "../store/chatStore";
 
-const SOCKET_URL = "http://localhost:8081";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:8081";
 
 export const socket = io(SOCKET_URL, {
     withCredentials: true,

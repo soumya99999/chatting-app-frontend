@@ -56,6 +56,7 @@ const LogInPage: React.FC = () => {
           onChange={handleChange}
           error={errors.password}
           required
+          autocomplete="current-password"
         />
         <div className="mt-4 text-center">
           <Link to="/forgot-password" className="text-amber-300 hover:text-amber-400">
