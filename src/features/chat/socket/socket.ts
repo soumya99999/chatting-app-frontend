@@ -3,7 +3,11 @@ import io from "socket.io-client";
 import type { Message } from "../types/chatInterface";
 import { useChatStore } from "../store/chatStore";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:8081";
+// Use the same logic as apiConfig.ts for socket URL selection
+const useLocal = false; // Set to true to use local URL, false to use hosted URL
+const VITE_SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
+const VITE_LOCAL_SOCKET_URL = import.meta.env.VITE_LOCAL_SOCKET_URL;
+const SOCKET_URL = useLocal ? VITE_LOCAL_SOCKET_URL : VITE_SOCKET_URL;
 
 export const socket = io(SOCKET_URL, {
     withCredentials: true,
