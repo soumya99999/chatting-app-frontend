@@ -24,7 +24,7 @@ export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       console.log('Attempting login with:', credentials.email);
-      const response = await axiosInstance.post('auth/login', credentials);
+      const response = await axiosInstance.post('/auth/login', credentials);
       console.log('Login response:', response.data);
       return response.data;
     } catch (error: unknown) {
@@ -71,8 +71,7 @@ export const authService = {
         formData.append('profilePicture', file);
       }
 
-      const response = await axios.post(`${API_BASE_URL}/auth/register`, formData, {
-        withCredentials: true,
+      const response = await axiosInstance.post('/auth/register', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -91,7 +90,7 @@ export const authService = {
   async fetchCurrentUser(): Promise<User> {
     try {
       console.log('Fetching current user...');
-      const response = await axiosInstance.get(`${API_BASE_URL}/users/current-user`);
+      const response = await axiosInstance.get('/users/current-user');
       console.log('Current user response:', response.data);
       return response.data;
     } catch (error: unknown) {
@@ -110,9 +109,7 @@ export const authService = {
 
   async logout(): Promise<void> {
     try {
-      await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
-        withCredentials: true,
-      });
+      await axiosInstance.post('/auth/logout');
     } catch (error: unknown) {
       if (error instanceof AxiosError) {
         const message = error.response?.data?.message || 'Logout failed';
@@ -125,9 +122,7 @@ export const authService = {
 
   async sendOTP(email: OTPRequest): Promise<void> {
     try {
-      await axios.post(`${API_BASE_URL}/auth/forgot-password/send-otp`, email, {
-        withCredentials: true,
-      });
+      await axiosInstance.post('/auth/forgot-password/send-otp', email);
     } catch (error: unknown) {
       if (error instanceof AxiosError) {
         const message = error.response?.data?.message || 'Failed to send OTP';
@@ -140,9 +135,7 @@ export const authService = {
 
   async verifyOTP(otpData: OTPVerification & { newPassword: string }): Promise<void> {
     try {
-      await axios.post(`${API_BASE_URL}/auth/forgot-password/verify-otp`, otpData, {
-        withCredentials: true,
-      });
+      await axiosInstance.post('/auth/forgot-password/verify-otp', otpData);
     } catch (error: unknown) {
       if (error instanceof AxiosError) {
         const message = error.response?.data?.message || 'Password reset failed';
@@ -166,7 +159,7 @@ export const authService = {
   async handleGoogleCallback(): Promise<AuthResponse> {
     try {
       console.log('Starting handleGoogleCallback in authService...');
-      const response = await axiosInstance.get(`${API_BASE_URL}/users/current-user`);
+      const response = await axiosInstance.get('/users/current-user');
       console.log('Current user response:', response.data);
       return response.data;
     } catch (error) {
